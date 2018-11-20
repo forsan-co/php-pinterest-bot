@@ -2,6 +2,7 @@
 
 namespace seregazhuk\PinterestBot\Api\Traits;
 
+use seregazhuk\PinterestBot\Api\Request;
 use seregazhuk\PinterestBot\Api\Response;
 
 trait HandlesRequest
@@ -9,20 +10,31 @@ trait HandlesRequest
     /**
      * Executes a POST request to Pinterest API.
      *
-     * @param array $requestOptions
      * @param string $resourceUrl
-     * @param bool $returnResponse
+     * @param array $requestOptions
+     * @param bool $returnData
      *
-     * @return Response|bool
+     * @return bool|array
      */
-    abstract protected function execPostRequest($requestOptions, $resourceUrl, $returnResponse = false);
+    abstract protected function post($resourceUrl, array $requestOptions = [], $returnData = false);
 
     /**
      * Executes a GET request to Pinterest API.
      *
-     * @param array $requestOptions
      * @param string $resourceUrl
-     * @return array|bool
+     * @param array $requestOptions
+     *
+     * @return bool|array
      */
-    abstract protected function execGetRequest(array $requestOptions = [], $resourceUrl = '');
+    abstract protected function get($resourceUrl = '', array $requestOptions = []);
+
+    /**
+     * @return Response
+     */
+    abstract public function getResponse();
+
+    /**
+     * @return Request
+     */
+    abstract public function getRequest();
 }

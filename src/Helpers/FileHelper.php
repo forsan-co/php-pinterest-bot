@@ -23,4 +23,13 @@ class FileHelper
 
         return $type;
     }
+
+    /**
+     * @param string $source
+     * @param string $destination
+     */
+    public static function saveTo($source, $destination)
+    {
+        copy($source, $destination);
+    }
 }

@@ -2,22 +2,26 @@
 
 namespace seregazhuk\PinterestBot\Api\Providers;
 
-use Iterator;
-use seregazhuk\PinterestBot\Api\Response;
 use seregazhuk\PinterestBot\Helpers\UrlBuilder;
-use seregazhuk\PinterestBot\Api\Traits\Followable;
+use seregazhuk\PinterestBot\Helpers\Pagination;
 use seregazhuk\PinterestBot\Api\Traits\Searchable;
 use seregazhuk\PinterestBot\Exceptions\WrongFollowingType;
+use seregazhuk\PinterestBot\Api\Traits\ResolvesCurrentUser;
+use seregazhuk\PinterestBot\Api\Providers\Core\FollowableProvider;
 
-class Pinners extends Provider
+class Pinners extends FollowableProvider
 {
-    use Searchable, Followable;
+    use Searchable, ResolvesCurrentUser;
 
+    /**
+     * @var array
+     */
     protected $loginRequiredFor = [
-        'follow',
-        'unFollow',
         'block',
+        'search',
         'blockById',
+        'followers',
+        'following',
     ];
 
     protected $searchScope  = 'people';
@@ -27,19 +31,18 @@ class Pinners extends Provider
     protected $followUrl    = UrlBuilder::RESOURCE_FOLLOW_USER;
     protected $unFollowUrl  = UrlBuilder::RESOURCE_UNFOLLOW_USER;
     protected $followersUrl = UrlBuilder::RESOURCE_USER_FOLLOWERS;
-    
+
     /**
      * Get user info.
      * If username param is not specified, will
      * return info for logged user.
      *
      * @param string $username
-     *
      * @return array
      */
     public function info($username)
     {
-        return $this->execGetRequest(['username' => $username], UrlBuilder::RESOURCE_USER_INFO);
+        return $this->get(UrlBuilder::RESOURCE_USER_INFO, ['username' => $username]);
     }
 
     /**
@@ -48,56 +51,53 @@ class Pinners extends Provider
      * @param string $username
      * @param string $type
      * @param int $limit
-     * @return Iterator
+     * @return Pagination
      * @throws WrongFollowingType
      */
-    public function following($username, $type = UrlBuilder::FOLLOWING_PEOPLE, $limit = 0)
+    public function following($username, $type = UrlBuilder::FOLLOWING_PEOPLE, $limit = Pagination::DEFAULT_LIMIT)
     {
         $followingUrl = UrlBuilder::getFollowingUrlByType($type);
 
-        if(empty($followingUrl)) {
+        if ($followingUrl === null) {
             throw new WrongFollowingType("No following results for $type");
         }
 
-        return $this->paginate($username, $followingUrl, $limit);
+        return $this->paginateByUsername($username, $followingUrl, $limit);
     }
 
     /**
-     * @codeCoverageIgnore
      * Get following people for pinner.
      *
      * @param string $username
      * @param int $limit
-     * @return Iterator
+     * @return Pagination
      */
-    public function followingPeople($username, $limit = 0)
+    public function followingPeople($username, $limit = Pagination::DEFAULT_LIMIT)
     {
         return $this->following($username, UrlBuilder::FOLLOWING_PEOPLE, $limit);
     }
 
     /**
-     * @codeCoverageIgnore
      * Get following boards for pinner.
      *
      * @param string $username
      * @param int $limit
-     * @return Iterator
+     * @return Pagination
      */
-    public function followingBoards($username, $limit = 0)
+    public function followingBoards($username, $limit = Pagination::DEFAULT_LIMIT)
     {
         return $this->following($username, UrlBuilder::FOLLOWING_BOARDS, $limit);
     }
 
     /**
-     * @codeCoverageIgnore
      * Get following interests for pinner.
      *
      * @param string $username
      * @param int $limit
-     * @return Iterator
+     * @return Pagination
      * @throws WrongFollowingType
      */
-    public function followingInterests($username, $limit = 0)
+    public function followingInterests($username, $limit = Pagination::DEFAULT_LIMIT)
     {
         return $this->following($username, UrlBuilder::FOLLOWING_INTERESTS, $limit);
     }
@@ -108,11 +108,11 @@ class Pinners extends Provider
      * @param string $username
      * @param int $limit
      *
-     * @return Iterator
+     * @return Pagination
      */
-    public function pins($username, $limit = 0)
+    public function pins($username, $limit = Pagination::DEFAULT_LIMIT)
     {
-        return $this->paginate(
+        return $this->paginateByUsername(
             $username, UrlBuilder::RESOURCE_USER_PINS, $limit
         );
     }
@@ -122,38 +122,50 @@ class Pinners extends Provider
      *
      * @param string $username
      * @param int $limit
-     * @return Iterator
+     * @return Pagination
      */
-    public function likes($username, $limit = 0)
+    public function likes($username, $limit = Pagination::DEFAULT_LIMIT)
     {
-        return $this->paginate(
+        return $this->paginateByUsername(
             $username, UrlBuilder::RESOURCE_USER_LIKES, $limit
         );
     }
 
     /**
      * @param string $username
-     * @return bool|Response
+     * @return bool
      */
     public function block($username)
     {
         // Retrieve profile data to get user id
         $profile = $this->info($username);
 
-        if(empty($profile)) return false;
+        if (empty($profile)) {
+            return false;
+        }
 
         return $this->blockById($profile['id']);
     }
 
     /**
      * @param int $userId
-     * @return bool|Response
+     * @return bool
      */
     public function blockById($userId)
     {
-        $data = ['blocked_user_id' => $userId];
+        return $this->post(
+            UrlBuilder::RESOURCE_BLOCK_USER, ['blocked_user_id' => $userId]
+        );
+    }
 
-        return $this->execPostRequest($data, UrlBuilder::RESOURCE_BLOCK_USER);
+    /**
+     * @param string $username
+     * @param int $limit
+     * @return Pagination
+     */
+    public function tried($username, $limit = Pagination::DEFAULT_LIMIT)
+    {
+        return $this->paginate(UrlBuilder::RESOURCE_USER_TRIED, ['username' => $username], $limit);
     }
 
     /**
@@ -161,15 +173,56 @@ class Pinners extends Provider
      * @param string $url
      * @param int $limit
      *
-     * @return Iterator
+     * @return Pagination
      */
-    protected function paginate($username, $url, $limit)
+    protected function paginateByUsername($username, $url, $limit = Pagination::DEFAULT_LIMIT)
     {
-        $params = [
-            'data' => ['username' => $username],
-            'url'  => $url,
-        ];
+        return $this->paginate($url, ['username' => $username], $limit);
+    }
 
-        return $this->getPaginatedResponse($params, $limit);
+    /**
+     * @param mixed $entityId
+     * @return int|null
+     */
+    protected function resolveEntityId($entityId)
+    {
+        // If user's id was passed we simply return it.
+        if (is_numeric($entityId)) {
+            return $entityId;
+        }
+
+        // Then we try to get user's info by username
+        $userInfo = $this->info($entityId);
+
+        // On success return users'id from his profile.
+        return $userInfo['id'] ?? null;
+    }
+
+    /**
+     * Returns current user's followers when used without arguments.
+     * @param string $username
+     * @param int $limit
+     * @return array|Pagination
+     */
+    public function followers($username = '', $limit = Pagination::DEFAULT_LIMIT)
+    {
+        $username = empty($username) ?
+            $this->resolveCurrentUsername() :
+            $username;
+
+        if (!$username) {
+            return new Pagination();
+        }
+
+        return parent::followers($username, $limit);
+    }
+
+    /**
+     * @param string $username
+     * @return bool|null
+     */
+    public function isFollowedByMe($username)
+    {
+        return $this->info($username)['explicitly_followed_by_me'] ?? false;
     }
 }

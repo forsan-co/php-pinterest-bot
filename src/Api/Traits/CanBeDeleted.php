@@ -11,6 +11,13 @@ trait CanBeDeleted
 {
     use HandlesRequest, HasEntityIdName;
 
+    protected function requiresLoginForCanBeDelete()
+    {
+        return [
+            'delete',
+        ];
+    }
+
     /**
      * Delete entity by ID.
      *
@@ -20,8 +27,9 @@ trait CanBeDeleted
      */
     public function delete($entityId)
     {
-        return $this->execPostRequest(
-            [$this->getEntityIdName() => $entityId], $this->getDeleteUrl()
+        return $this->post(
+            $this->getDeleteUrl(),
+            [$this->getEntityIdName() => $entityId]
         );
     }
 

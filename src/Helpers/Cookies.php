@@ -4,23 +4,20 @@ namespace seregazhuk\PinterestBot\Helpers;
 
 class Cookies
 {
-    const TOKEN_NAME = 'csrftoken';
-    const DEFAULT_TOKEN = '1234';
-
     /**
      * @var array
      */
     protected $cookies = [];
 
     /**
-     * @param $name
+     * @param string $name
      * @return mixed
      */
     public function get($name)
     {
-        if(array_key_exists($name, $this->cookies)) {
+        if (array_key_exists($name, $this->cookies)) {
             return $this->cookies[$name]['value'];
-       }
+        }
 
         return null;
     }
@@ -49,14 +46,14 @@ class Cookies
         $this->cookies = [];
 
         foreach (file($file) as $line) {
-            if($cookie = $this->parseCookie($line)) {
+            if ($cookie = $this->parseCookieLine($line)) {
                 $this->cookies[$cookie['name']] = $cookie;
             }
         }
     }
 
     /**
-     * @param $line
+     * @param string $line
      * @return bool
      */
     protected function isHttp($line)
@@ -65,19 +62,19 @@ class Cookies
     }
 
     /**
-     * @param $line
+     * @param string $line
      * @return bool
      */
-    protected function isValid($line)
+    protected function isValidLine($line)
     {
         return strlen($line) > 0 && $line[0] != '#' && substr_count($line, "\t") == 6;
     }
 
     /**
-     * @param $line
+     * @param string $line
      * @return array|bool
      */
-    protected function parseCookie($line)
+    protected function parseCookieLine($line)
     {
         // detect http only cookies and remove #HttpOnly prefix
         $httpOnly = $this->isHttp($line);
@@ -86,7 +83,9 @@ class Cookies
             $line = substr($line, 10);
         }
 
-        if (!$this->isValid($line)) return false;
+        if (!$this->isValidLine($line)) {
+            return false;
+        }
 
         $data = $this->getCookieData($line);
 
@@ -96,12 +95,12 @@ class Cookies
     }
 
     /**
-     * @param $line
+     * @param string $line
      * @return array
      */
     protected function getCookieData($line)
     {
-        // get tokens in an array
+        // execGet tokens in an array
         $data = explode("\t", $line);
         // trim the tokens
         $data =  array_map('trim', $data);

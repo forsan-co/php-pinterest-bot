@@ -1,7 +1,9 @@
 language: php
  
 php:
-  - 5.5
+  - 7.0
+  - 7.1
+  - 7.2
 
 addons:
   code_climate:
@@ -12,8 +14,6 @@ before_script:
   - composer install --prefer-source --no-interaction --dev
   - composer dump-autoload
  
-script: phpunit
-
 after_script:
   - vendor/bin/test-reporter
 

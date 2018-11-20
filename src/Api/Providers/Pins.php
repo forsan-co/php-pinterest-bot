@@ -2,90 +2,77 @@
 
 namespace seregazhuk\PinterestBot\Api\Providers;
 
-use Iterator;
 use seregazhuk\PinterestBot\Api\Response;
-use seregazhuk\PinterestBot\Api\Traits\HasFeed;
+use seregazhuk\PinterestBot\Api\Traits\TryIt;
+use seregazhuk\PinterestBot\Helpers\FileHelper;
+use seregazhuk\PinterestBot\Helpers\Pagination;
 use seregazhuk\PinterestBot\Helpers\UrlBuilder;
 use seregazhuk\PinterestBot\Api\Traits\Searchable;
-use seregazhuk\PinterestBot\Api\Traits\SendsMessages;
+use seregazhuk\PinterestBot\Api\Traits\CanBeShared;
 use seregazhuk\PinterestBot\Api\Traits\CanBeDeleted;
-use seregazhuk\PinterestBot\Api\Traits\UploadsImages;
+use seregazhuk\PinterestBot\Api\Traits\SendsMessages;
+use seregazhuk\PinterestBot\Api\Providers\Core\EntityProvider;
 
-class Pins extends Provider
+class Pins extends EntityProvider
 {
-    use Searchable, CanBeDeleted, UploadsImages, HasFeed, SendsMessages;
+    use Searchable,
+        CanBeDeleted,
+        SendsMessages,
+        TryIt,
+        CanBeShared;
 
+    /**
+     * @var array
+     */
     protected $loginRequiredFor = [
         'like',
-        'unLike',
-        'create',
-        'repin',
+        'feed',
         'copy',
         'move',
-        'delete',
+        'repin',
+        'unLike',
+        'create',
         'activity',
-        'feed',
-        'send',
+        'analytics',
         'visualSimilar',
     ];
 
     protected $searchScope  = 'pins';
     protected $entityIdName = 'id';
 
-    protected $deleteUrl = UrlBuilder::RESOURCE_DELETE_PIN;
-    
-    /**
-     * Likes pin with current ID.
-     *
-     * @param string $pinId
-     *
-     * @return bool
-     */
-    public function like($pinId)
-    {
-        return $this->likePinMethodCall($pinId, UrlBuilder::RESOURCE_LIKE_PIN);
-    }
+    protected $messageEntityName = 'pin';
 
-    /**
-     * Removes your like from pin with current ID.
-     *
-     * @param string $pinId
-     *
-     * @return bool
-     */
-    public function unLike($pinId)
-    {
-        return $this->likePinMethodCall($pinId, UrlBuilder::RESOURCE_UNLIKE_PIN);
-    }
+    protected $deleteUrl = UrlBuilder::RESOURCE_DELETE_PIN;
 
     /**
      * Create a pin. Returns created pin info.
      *
      * @param string $imageUrl
-     * @param int    $boardId
+     * @param int $boardId
      * @param string $description
      * @param string $link
-     *
+     * @param string $title
      * @return array
      */
-    public function create($imageUrl, $boardId, $description = '', $link = '')
+    public function create($imageUrl, $boardId, $description = '', $link = '', $title = '')
     {
-        // Upload image if first argument is not url
+        // Upload image if first argument is not an url
         if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
             $imageUrl = $this->upload($imageUrl);
         }
 
         $requestOptions = [
-            'method'      => 'scraped',
+            'method' => 'scraped',
             'description' => $description,
-            'link'        => empty($link) ? $imageUrl : $link,
-            'image_url'   => $imageUrl,
-            'board_id'    => $boardId,
+            'link' => $link,
+            'image_url' => $imageUrl,
+            'board_id' => $boardId,
+            'title' => $title,
         ];
 
-        return $this
-            ->execPostRequest($requestOptions, UrlBuilder::RESOURCE_CREATE_PIN, true)
-            ->getResponseData();
+        $this->post(UrlBuilder::RESOURCE_CREATE_PIN, $requestOptions);
+
+        return $this->response->getResponseData();
     }
 
     /**
@@ -95,39 +82,50 @@ class Pins extends Provider
      * @param string $description
      * @param string $link
      * @param int|null $boardId
+     * @param string $title
      * @return bool
      */
-    public function edit($pindId, $description = '', $link = '', $boardId = null)
+    public function edit($pindId, $description = '', $link = '', $boardId = null, $title = '')
     {
-        $requestOptions = [
-            'id'          => $pindId,
-            'description' => $description,
-            'link'        => $link,
-            'board_id'    => $boardId,
-        ];
+        $requestOptions = ['id' => $pindId];
 
-        return $this->execPostRequest($requestOptions, UrlBuilder::RESOURCE_UPDATE_PIN);
+        if (!empty($description)) {
+            $requestOptions['description'] = $description;
+        }
+
+        if ($boardId !== null) {
+            $requestOptions['board_id'] = $boardId;
+        }
+
+        if (!empty($link)) {
+            $requestOptions['link'] = stripslashes($link);
+        }
+
+        if (!empty($title)) {
+            $requestOptions['title'] = $title;
+        }
+
+        return $this->post(UrlBuilder::RESOURCE_UPDATE_PIN, $requestOptions);
     }
 
     /**
      * Moves pin to a new board
      *
-     * @param int $pindId
+     * @param int $pinId
      * @param int $boardId
      * @return bool
      */
-    public function moveToBoard($pindId, $boardId)
+    public function moveToBoard($pinId, $boardId)
     {
-        return $this->edit($pindId, '', '', $boardId);
+        return $this->edit($pinId, '', '', $boardId);
     }
-    
+
     /**
      * Make a repin.
      *
-     * @param int   $repinId
-     * @param int   $boardId
+     * @param int $repinId
+     * @param int $boardId
      * @param string $description
-     *
      * @return array
      */
     public function repin($repinId, $boardId, $description = '')
@@ -135,21 +133,20 @@ class Pins extends Provider
         $requestOptions = [
             'board_id'    => $boardId,
             'description' => stripslashes($description),
-            'link'        => stripslashes($repinId),
+            'link'        => '',
             'is_video'    => null,
             'pin_id'      => $repinId,
         ];
 
-        return $this
-            ->execPostRequest($requestOptions, UrlBuilder::RESOURCE_REPIN, true)
-            ->getResponseData();
+        $this->post(UrlBuilder::RESOURCE_REPIN, $requestOptions);
+
+        return $this->response->getResponseData();
     }
 
     /**
      * Get information of a pin by PinID.
      *
      * @param string $pinId
-     *
      * @return array|bool
      */
     public function info($pinId)
@@ -159,7 +156,7 @@ class Pins extends Provider
             'field_set_key' => 'detailed',
         ];
 
-        return $this->execGetRequest($requestOptions, UrlBuilder::RESOURCE_PIN_INFO);
+        return $this->get(UrlBuilder::RESOURCE_PIN_INFO, $requestOptions);
     }
 
     /**
@@ -168,13 +165,13 @@ class Pins extends Provider
      *
      * @param string $source
      * @param int $limit
-     * @return Iterator
+     * @return Pagination
      */
-    public function fromSource($source, $limit = 0)
+    public function fromSource($source, $limit = Pagination::DEFAULT_LIMIT)
     {
         $data = ['domain' => $source];
 
-        return $this->getFeed($data, UrlBuilder::RESOURCE_DOMAIN_FEED, $limit);
+        return $this->paginate(UrlBuilder::RESOURCE_DOMAIN_FEED, $data, $limit);
     }
 
     /**
@@ -182,42 +179,59 @@ class Pins extends Provider
      *
      * @param string $pinId
      * @param int $limit
-     * @return Iterator|null
+     * @return Pagination
      */
-    public function activity($pinId, $limit = 0)
+    public function activity($pinId, $limit = Pagination::DEFAULT_LIMIT)
+    {
+        return $this->getAggregatedActivity($pinId, [], $limit);
+    }
+
+    /**
+     * @param string $pinId
+     * @param array $additionalData
+     * @param int $limit
+     * @return Pagination
+     */
+    protected function getAggregatedActivity($pinId, $additionalData = [], $limit)
     {
         $aggregatedPinId = $this->getAggregatedPinId($pinId);
 
-        if (is_null($aggregatedPinId)) return null;
+        if ($aggregatedPinId === null) {
+            return new Pagination();
+        }
 
-        $data = ['aggregated_pin_data_id' => $aggregatedPinId];
+        $additionalData['aggregated_pin_data_id'] = $aggregatedPinId;
 
-        return $this->getFeed($data, UrlBuilder::RESOURCE_ACTIVITY, $limit);
+        return $this->paginate(UrlBuilder::RESOURCE_ACTIVITY, $additionalData, $limit);
     }
 
     /**
      * Get pins from user's feed
      *
      * @param int $limit
-     * @return Iterator
+     * @return Pagination
      */
-    public function feed($limit = 0)
+    public function feed($limit = Pagination::DEFAULT_LIMIT)
     {
-        return $this->getFeed([], UrlBuilder::RESOURCE_USER_FEED, $limit);
+        return $this->paginate(UrlBuilder::RESOURCE_USER_FEED, [], $limit);
     }
 
     /**
      * @param string $pinId
      * @param int $limit
-     * @return mixed
+     * @return Pagination
      */
-    public function related($pinId, $limit = 0)
+    public function related($pinId, $limit = Pagination::DEFAULT_LIMIT)
     {
-        return $this->getFeed(['pin' => $pinId], UrlBuilder::RESOURCE_RELATED_PINS, $limit);
+        $requestData = [
+            'pin'      => $pinId,
+            'add_vase' => true,
+        ];
+
+        return $this->paginate(UrlBuilder::RESOURCE_RELATED_PINS, $requestData, $limit);
     }
 
     /**
-     * @codeCoverageIgnore
      * Copy pins to board
      *
      * @param array|string $pinIds
@@ -230,7 +244,6 @@ class Pins extends Provider
     }
 
     /**
-     * @codeCoverageIgnore
      * Delete pins from board.
      *
      * @param string|array $pinIds
@@ -243,23 +256,6 @@ class Pins extends Provider
     }
 
     /**
-     * Send pin with message or by email.
-     *
-     * @param string $pinId
-     * @param string $text
-     * @param array|string $userIds
-     * @param array|string $emails
-     * @return bool
-     */
-    public function send($pinId, $text, $userIds, $emails)
-    {
-        $messageData = $this->buildMessageData($text, $pinId);
-
-        return $this->callSendMessage($userIds, $emails, $messageData);
-    }
-
-    /**
-     * @codeCoverageIgnore
      * Move pins to board
      *
      * @param string|array $pinIds
@@ -270,41 +266,99 @@ class Pins extends Provider
     {
         return $this->bulkEdit($pinIds, $boardId, UrlBuilder::RESOURCE_BULK_MOVE);
     }
-    
+
     /**
      * @param string $pinId
-     * @param array $crop
-     * @return array|bool
+     * @param int $limit
+     * @return Pagination
      */
-    public function visualSimilar($pinId, array $crop = [])
+    public function visualSimilar($pinId, $limit = Pagination::DEFAULT_LIMIT)
     {
         $data = [
-            'pin_id' => $pinId,
-            'crop' => $crop ? : [
-                "x" => 0.16,
-                "y" => 0.16,
-                "w" => 0.66,
-                "h" => 0.66,
-                "num_crop_actions" => 1
+            'pin_id'          => $pinId,
+            // Some magic numbers, I have no idea about them
+            'crop'            => [
+                'x'                => 0.16,
+                'y'                => 0.16,
+                'w'                => 0.66,
+                'h'                => 0.66,
+                'num_crop_actions' => 1,
             ],
-            'force_refresh' => true,
-            'keep_duplicates' => false
+            'force_refresh'   => true,
+            'keep_duplicates' => false,
         ];
 
-        return $this->execGetRequest($data, UrlBuilder::RESOURCE_VISUAL_SIMILAR_PINS);
+        return $this->paginate(UrlBuilder::RESOURCE_VISUAL_SIMILAR_PINS, $data, $limit);
     }
-    
+
     /**
-     * Calls Pinterest API to like or unlike Pin by ID.
+     * Saves the pin original image to the specified path. On success
+     * returns full path to saved image. Otherwise returns false.
      *
      * @param string $pinId
-     * @param string $resourceUrl
-     *
-     * @return bool
+     * @param string $path
+     * @return false|string
      */
-    protected function likePinMethodCall($pinId, $resourceUrl)
+    public function saveOriginalImage($pinId, $path)
     {
-        return $this->execPostRequest(['pin_id' => $pinId], $resourceUrl);
+        $pinInfo = $this->info($pinId);
+        if (!isset($pinInfo['images']['orig']['url'])) {
+            return false;
+        }
+
+        $originalUrl = $pinInfo['images']['orig']['url'];
+        $destination = $path . DIRECTORY_SEPARATOR . basename($originalUrl);
+
+        FileHelper::saveTo($originalUrl, $destination);
+
+        return $destination;
+    }
+
+    /**
+     * @param string $query
+     * @param int $limit
+     * @return Pagination
+     */
+    public function searchInMyPins($query, $limit = Pagination::DEFAULT_LIMIT)
+    {
+        return $this->paginateCustom(
+            function () use ($query) {
+                return $this->execSearchRequest($query, 'my_pins');
+            }
+        )->take($limit);
+    }
+
+    /**
+     * Returns trending pins from http://pinterest.com/discover page. Uses topic id, that can be received
+     * from $bot->topics->explore() method.
+     *
+     * @param string $topicId
+     * @param int $limit
+     * @return Pagination
+     */
+    public function explore($topicId, $limit = Pagination::DEFAULT_LIMIT)
+    {
+        $data = [
+            'aux_fields' => [],
+            'prepend'    => false,
+            'offset'     => 180,
+            'section_id' => $topicId,
+        ];
+
+        return $this->paginate(UrlBuilder::RESOURCE_EXPLORE_PINS, $data, $limit);
+    }
+
+    /**
+     * Get pin analytics, like numbers of clicks, views and repins
+     * @param $pinId
+     * @return array|bool|Response
+     */
+    public function analytics($pinId)
+    {
+        // Pinterest requires pinId to be a string
+        $pinId = (string)$pinId;
+
+        return $this->get(UrlBuilder::RESOURCE_PIN_ANALYTICS, ['pin_id' => $pinId]);
     }
 
     /**
@@ -315,18 +369,7 @@ class Pins extends Provider
     {
         $pinInfo = $this->info($pinId);
 
-        return isset($pinInfo['aggregated_pin_data']['id']) ?
-            $pinInfo['aggregated_pin_data']['id'] :
-            null;
-    }
-
-    /**
-     * @param mixed $params
-     * @return array
-     */
-    protected function getFeedRequestData($params = [])
-    {
-        return ['domain' => $params['source']];
+        return $pinInfo['aggregated_pin_data']['id'] ?? null;
     }
 
     /**
@@ -337,13 +380,11 @@ class Pins extends Provider
      */
     protected function bulkEdit($pinIds, $boardId, $editUrl)
     {
-        $pinIds = is_array($pinIds) ? $pinIds : [$pinIds];
-
         $data = [
-            'board_id' => (string)$boardId,
-            'pin_ids'  => $pinIds,
+            'board_id' => $boardId,
+            'pin_ids'  => (array)$pinIds,
         ];
 
-        return $this->execPostRequest($data, $editUrl);
+        return $this->post($editUrl, $data);
     }
 }

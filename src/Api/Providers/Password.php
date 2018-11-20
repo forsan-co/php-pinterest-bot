@@ -2,11 +2,18 @@
 
 namespace seregazhuk\PinterestBot\Api\Providers;
 
-use seregazhuk\PinterestBot\Api\Response;
 use seregazhuk\PinterestBot\Helpers\UrlBuilder;
+use seregazhuk\PinterestBot\Api\Providers\Core\Provider;
 
 class Password extends Provider
 {
+    /**
+     * @var array
+     */
+    protected $loginRequiredFor = [
+        'change',
+    ];
+
     /**
      * Ask for password reset link in email
      *
@@ -15,9 +22,10 @@ class Password extends Provider
      */
     public function sendResetLink($user)
     {
-        $request = ['username_or_email' => $user];
-
-        return $this->execPostRequest($request, UrlBuilder::RESOURCE_RESET_PASSWORD_SEND_LINK);
+        return $this->post(
+            UrlBuilder::RESOURCE_RESET_PASSWORD_SEND_LINK,
+            ['username_or_email' => $user]
+        );
     }
 
     /**
@@ -25,19 +33,32 @@ class Password extends Provider
      *
      * @param string $link
      * @param string $newPassword
-     * @return bool|Response
+     * @return bool
      */
     public function reset($link, $newPassword)
     {
         // Visit link to get current reset token, username and token expiration
-        $this->execGetRequest([], $link);
-        $this->request->clearToken();
+        $this->get($link);
+        $this->request->dropCookies();
 
         $urlData = $this->parseCurrentUrl();
+
+        $isValidUrlData = isset($urlData['query'], $urlData['path']);
+        if (!$isValidUrlData) {
+            return false;
+        }
+
         $username = trim(str_replace('/pw/', '', $urlData['path']), '/');
 
         $query = [];
+
         parse_str($urlData['query'], $query);
+
+        $isValidQuery = isset($query['e'], $query['t']);
+        if (!$isValidQuery) {
+            return false;
+        }
+
         $request = [
             'username'             => $username,
             'new_password'         => $newPassword,
@@ -46,7 +67,7 @@ class Password extends Provider
             'expiration'           => $query['e'],
         ];
 
-        return $this->execPostRequest($request, UrlBuilder::RESOURCE_RESET_PASSWORD_UPDATE, true);
+        return $this->post(UrlBuilder::RESOURCE_RESET_PASSWORD_UPDATE, $request);
     }
 
     /**
@@ -62,15 +83,15 @@ class Password extends Provider
             'new_password_confirm' => $newPassword,
         ];
 
-        return $this->execPostRequest($request, UrlBuilder::RESOURCE_CHANGE_PASSWORD);
+        return $this->post(UrlBuilder::RESOURCE_CHANGE_PASSWORD, $request);
     }
 
     /**
-     * @return string
+     * @return mixed
      */
     protected function parseCurrentUrl()
     {
-        $url = $this->request->getHttpClient()->getCurrentUrl();
+        $url = $this->request->getCurrentUrl();
 
         return parse_url($url);
     }

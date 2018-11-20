@@ -2,16 +2,45 @@
 
 namespace seregazhuk\PinterestBot\Api;
 
-use ReflectionClass;
-use seregazhuk\PinterestBot\Api\Providers\Provider;
+use SebastianBergmann\CodeCoverage\Report\PHP;
+use seregazhuk\PinterestBot\Api\Providers\BoardSections;
+use seregazhuk\PinterestBot\Api\Providers\Pins;
+use seregazhuk\PinterestBot\Api\Providers\Suggestions;
+use seregazhuk\PinterestBot\Api\Providers\User;
+use seregazhuk\PinterestBot\Api\Providers\Auth;
+use seregazhuk\PinterestBot\Api\Providers\Inbox;
+use seregazhuk\PinterestBot\Api\Providers\Boards;
+use seregazhuk\PinterestBot\Api\Providers\Topics;
+use seregazhuk\PinterestBot\Api\Providers\Pinners;
+use seregazhuk\PinterestBot\Api\Providers\Keywords;
+use seregazhuk\PinterestBot\Api\Providers\Comments;
+use seregazhuk\PinterestBot\Api\Providers\Password;
+use seregazhuk\PinterestBot\Api\Providers\Interests;
 use seregazhuk\PinterestBot\Exceptions\WrongProvider;
 use seregazhuk\PinterestBot\Api\Contracts\HttpClient;
-use seregazhuk\PinterestBot\Api\Providers\ProviderWrapper;
+use seregazhuk\PinterestBot\Api\Providers\Core\Provider;
+use seregazhuk\PinterestBot\Api\Providers\Core\ProviderWrapper;
 
+/**
+ * @property-read Pins $pins
+ * @property-read Inbox $inbox
+ * @property-read User $user
+ * @property-read Boards $boards
+ * @property-read Pinners $pinners
+ * @property-read Keywords $keywords
+ * @property-read Interests $interests
+ * @property-read Topics $topics
+ * @property-read Auth $auth
+ * @property-read Comments $comments
+ * @property-read Password $password
+ * @property-read Suggestions $suggestions
+ * @property-read BoardSections $boardSections
+ *
+ * Class ProvidersContainer
+ * @package seregazhuk\PinterestBot\Api
+ */
 class ProvidersContainer
 {
-    const PROVIDERS_NAMESPACE = 'seregazhuk\\PinterestBot\\Api\\Providers\\';
-
     /**
      * References to the request that travels
      * through the application.
@@ -43,6 +72,19 @@ class ProvidersContainer
     }
 
     /**
+     * Magic method to access different providers from the container.
+     *
+     * @param string $provider
+     * @return Provider
+     * @throws WrongProvider
+     */
+    public function __get($provider)
+    {
+        return $this->getProvider($provider);
+    }
+
+
+    /**
      * Gets provider object by name. If there is no such provider
      * in providers array, it will try to create it, then save
      * it, and then return.
@@ -55,8 +97,6 @@ class ProvidersContainer
      */
     public function getProvider($provider)
     {
-        $provider = strtolower($provider);
-
         // Check if an instance has already been initiated. If not
         // build it and then add to the providers array.
         if (!isset($this->providers[$provider])) {
@@ -71,59 +111,58 @@ class ProvidersContainer
      * it to providers array. Provider class must exist in PROVIDERS_NAMESPACE.
      *
      * @param string $provider
-     *
      * @throws WrongProvider
      */
     protected function addProvider($provider)
     {
-        $className = self::PROVIDERS_NAMESPACE.ucfirst($provider);
-
-        if (!class_exists($className)) {
-            throw new WrongProvider("Provider $className not found.");
-        }
+        $className = $this->resolveProviderClass($provider);
 
         $this->providers[$provider] = $this->buildProvider($className);
     }
 
     /**
-     * Build Provider object with reflection API.
+     * Build Provider object.
      *
      * @param string $className
-     *
-     * @throws WrongProvider
-     *
-     * @return object
+     * @return ProviderWrapper
      */
     protected function buildProvider($className)
     {
-        $provider = (new ReflectionClass($className))
-            ->newInstanceArgs([$this->request, $this->response]);
+        $provider = new $className($this);
 
         return new ProviderWrapper($provider);
     }
 
     /**
-     * Proxies call to Request object and returns message from
+     * Proxies call to Response object and returns message from
      * the error object.
      *
      * @return string|null
      */
     public function getLastError()
     {
-        $error = $this
-            ->response
-            ->getLastError();
-
-        return isset($error['message']) ? $error['message'] : null;
+        return $this->response->getLastErrorText();
     }
 
     /**
-     * Simply proxies call to Response object.
+     * Returns client context from Pinterest response. By default info returns from the last
+     * Pinterest response. If there was no response before or the argument $reload is
+     * true, we make a dummy request to the main page to update client context.
      *
+     * @param bool $reload
      * @return array|null
+     * @throws WrongProvider
      */
-    public function getClientInfo()
+    public function getClientInfo($reload = false)
     {
+        $clientInfo = $this->response->getClientInfo();
+
+        if ($clientInfo === null || $reload) {
+            /** @var User $userProvider */
+            $userProvider = $this->getProvider('user');
+            $userProvider->visitPage();
+        }
+
         return $this->response->getClientInfo();
     }
 
@@ -136,5 +175,50 @@ class ProvidersContainer
     public function getHttpClient()
     {
         return $this->request->getHttpClient();
+    }
+
+    /**
+     * @param string $provider
+     * @return string
+     * @throws WrongProvider
+     */
+    protected function resolveProviderClass($provider)
+    {
+        $className = __NAMESPACE__ . '\\Providers\\' . ucfirst($provider);
+
+        if (!$this->checkIsProviderClass($className)) {
+            throw new WrongProvider("Provider $className not found.");
+        }
+
+        return $className;
+    }
+
+    /**
+     * @param string $className
+     * @return bool
+     */
+    protected function checkIsProviderClass($className)
+    {
+        if (!class_exists($className)) {
+            return false;
+        }
+
+        return in_array(Provider::class, class_parents($className));
+    }
+
+    /**
+     * @return Request
+     */
+    public function getRequest()
+    {
+        return $this->request;
+    }
+
+    /**
+     * @return Response
+     */
+    public function getResponse()
+    {
+        return $this->response;
     }
 }

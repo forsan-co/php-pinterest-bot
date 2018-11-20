@@ -2,110 +2,176 @@
 
 namespace seregazhuk\PinterestBot\Helpers;
 
-use seregazhuk\PinterestBot\Api\Providers\Provider;
+use Traversable;
+use EmptyIterator;
+use IteratorAggregate;
 use seregazhuk\PinterestBot\Api\Contracts\PaginatedResponse;
 
-class Pagination
+/**
+ * Class Pagination
+ * Iterate through results of Pinterest Api. By default iterator will return 50 first
+ * pagination results. To change this behaviour specify another limit as the
+ * constructor param. For no limits specify zero.
+ *
+ * @package seregazhuk\PinterestBot\Helpers
+ */
+class Pagination implements IteratorAggregate
 {
-    /**
-     * @var Provider
-     */
-    protected $provider;
+    const DEFAULT_LIMIT = 50;
 
     /**
-     * @var array
+     * @var int
      */
-    protected $bookmarks = [];
+    protected $limit;
 
     /**
-     * @param Provider $provider
+     * @var callable
      */
-    public function __construct(Provider $provider)
+    protected $callback;
+
+    /**
+     * @var int
+     */
+    protected $offset;
+
+    /**
+     * @var int
+     */
+    protected $resultsNum;
+
+    /**
+     * @var int
+     */
+    protected $processed;
+
+    /**
+     * @param int $limit
+     */
+    public function __construct($limit = self::DEFAULT_LIMIT)
     {
-        $this->provider = $provider;
+        $this->limit = $limit;
     }
 
     /**
-     * Iterate through results of Api function call. By
-     * default generator will return all pagination results.
-     * To limit result batches, set $limit. Call function
-     * of object to get data.
+     * Sets a callback to make requests. Callback should return PaginatedResponse object.
      *
-     * @param string $method
-     * @param array $params
-     * @param int $limit
-     * @return \Generator
+     * @param callable $callback
+     * @return $this
      */
-    public function paginateOver($method, $params, $limit = 0)
+    public function paginateOver(callable $callback)
     {
-        $resultsNum = 0;
-        while (true) {
-            $response = $this->callProviderRequest($method, $params);
-            $results = $this->processProviderResponse($response);
+        $this->callback = $callback;
 
-            if (empty($results)) return;
+        return $this;
+    }
 
-            foreach ($results as $result) {
-                $resultsNum++;
-                yield $result;
+    /**
+     * Syntax sugar for getIterator method
+     * @return Traversable
+     */
+    public function get()
+    {
+        return $this->getIterator();
+    }
 
-                if ($this->reachesLimit($limit, $resultsNum) || $this->checkEndBookMarks()) {
-                    return;
-                }
-            }
+    /**
+     * Retrieve an external iterator
+     * @return Traversable
+     */
+    public function getIterator()
+    {
+        if (empty($this->callback)) {
+            return new EmptyIterator();
         }
 
-        return;
+        return $this->processCallback();
     }
 
     /**
-     * @param string $method
-     * @param array $params
-     * @return PaginatedResponse
+     * @param int $offset
+     * @return $this
      */
-    protected function callProviderRequest($method, array $params)
+    public function skip($offset)
     {
-        $params['bookmarks'] = $this->bookmarks;
+        $this->offset = $offset;
 
-        return call_user_func_array([$this->provider, $method], $params);
+        return $this;
     }
 
     /**
-     * @param PaginatedResponse $response
+     * @param int $limit
+     * @return $this
+     */
+    public function take($limit)
+    {
+        $this->limit = $limit;
+
+        return $this;
+    }
+
+    /**
      * @return array
      */
-    protected function processProviderResponse(PaginatedResponse $response)
+    public function toArray()
     {
-        if ($response->hasResponseData()) {
-            $this->bookmarks = $response->getBookmarks();
-
-            return $response->getResponseData();
-        }
-
-        return [];
+        return iterator_to_array($this->getIterator());
     }
 
     /**
-     * Check if we get batches limit in pagination.
+     * Check if we execGet results limit in pagination.
      *
-     * @param int $limit
      * @param int $resultsNum
      *
      * @return bool
      */
-    protected function reachesLimit($limit, $resultsNum)
+    protected function reachesLimit($resultsNum)
     {
-        return $limit && $resultsNum >= $limit;
+        return $this->limit && $resultsNum >= $this->limit;
     }
 
+    /**
+     * @return \Generator|void
+     */
+    protected function processCallback()
+    {
+        $this->resultsNum = 0;
+        $this->processed = 0;
+
+        while (true) {
+            /** @var PaginatedResponse $response */
+            $response = call_user_func($this->callback);
+
+            if ($response->isEmpty()) {
+                return;
+            }
+
+            foreach ($this->getResultsFromResponse($response) as $result) {
+                $this->processed++;
+
+                if ($this->processed > $this->offset) {
+                    yield $result;
+                    $this->resultsNum++;
+                }
+
+                if ($this->reachesLimit($this->resultsNum)) {
+                    return;
+                }
+            }
+
+            if (!$response->hasBookmarks()) {
+                return;
+            }
+        }
+    }
 
     /**
-     * Checks for -end- substring in bookmarks
-     *
-     * @return bool
+     * @param $response
+     * @return array
      */
-    protected function checkEndBookMarks()
+    protected function getResultsFromResponse(PaginatedResponse $response)
     {
-        return !empty($this->bookmarks) && $this->bookmarks[0] == '-end-';
+        $results = $response->getResponseData();
+
+        return $results === false ? [] : $results;
     }
 }

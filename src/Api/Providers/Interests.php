@@ -2,29 +2,32 @@
 
 namespace seregazhuk\PinterestBot\Api\Providers;
 
-use Generator;
-use seregazhuk\PinterestBot\Api\Traits\HasFeed;
+use seregazhuk\PinterestBot\Helpers\Pagination;
 use seregazhuk\PinterestBot\Helpers\UrlBuilder;
+use seregazhuk\PinterestBot\Api\Providers\Core\Provider;
 use seregazhuk\PinterestBot\Api\Traits\HasRelatedTopics;
 
 class Interests extends Provider
 {
-    use HasRelatedTopics, HasFeed;
+    use HasRelatedTopics;
 
     protected $feedUrl = UrlBuilder::RESOURCE_GET_CATEGORY_FEED;
 
+    /**
+     * @var array
+     */
     protected $loginRequiredFor = [
         'main',
     ];
 
     /**
      * Get list of main categories
-     * 
+     *
      * @return array|bool
      */
     public function main()
     {
-        return $this->execGetRequest(["category_types" => "main"], UrlBuilder::RESOURCE_GET_CATEGORIES);
+        return $this->get(UrlBuilder::RESOURCE_GET_CATEGORIES, ['category_types' => 'main']);
     }
 
     /**
@@ -35,7 +38,7 @@ class Interests extends Provider
      */
     public function info($category)
     {
-        return $this->execGetRequest(["category" => $category], UrlBuilder::RESOURCE_GET_CATEGORY);
+        return $this->get(UrlBuilder::RESOURCE_GET_CATEGORY, ['category' => $category]);
     }
 
     /**
@@ -43,15 +46,15 @@ class Interests extends Provider
      *
      * @param string $interest
      * @param int $limit
-     * @return Generator
+     * @return Pagination
      */
-    public function pins($interest, $limit = 0)
+    public function pins($interest, $limit = Pagination::DEFAULT_LIMIT)
     {
-       $data = [
-           'feed'             => $interest,
-           'is_category_feed' => true,
-       ];
+        $data = [
+            'feed'             => $interest,
+            'is_category_feed' => true,
+        ];
 
-        return $this->getFeed($data, UrlBuilder::RESOURCE_GET_CATEGORY_FEED, $limit);
+        return $this->paginate(UrlBuilder::RESOURCE_GET_CATEGORY_FEED, $data, $limit);
     }
 }

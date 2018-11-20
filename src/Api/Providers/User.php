@@ -3,28 +3,29 @@
 namespace seregazhuk\PinterestBot\Api\Providers;
 
 use seregazhuk\PinterestBot\Api\Response;
+use seregazhuk\PinterestBot\Api\Forms\Profile;
+use seregazhuk\PinterestBot\Api\Traits\HasProfileSettings;
 use seregazhuk\PinterestBot\Helpers\UrlBuilder;
 use seregazhuk\PinterestBot\Api\Traits\UploadsImages;
+use seregazhuk\PinterestBot\Api\Providers\Core\Provider;
 
 class User extends Provider
 {
-    use UploadsImages;
+    use UploadsImages, HasProfileSettings;
 
     /**
      * @var array
      */
     protected $loginRequiredFor = [
+        'id',
+        'invite',
         'profile',
-        'convertToBusiness',
-        'changePassword',
+        'username',
         'isBanned',
         'deactivate',
-        'username',
-        'invite'
+        'sessionsHistory',
+        'convertToBusiness',
     ];
-
-    const REGISTRATION_COMPLETE_EXPERIENCE_ID = '11:10105';
-    const ACCOUNT_TYPE_OTHER = 'other';
 
     /**
      * Updates or returns user profile info. Gets associative array as a param. Available keys of array are:
@@ -33,37 +34,16 @@ class User extends Provider
      *
      * @param array $userInfo If empty returns current user profile.
      *
-     * @return bool|array
+     * @return bool|array|Profile
      */
-    public function profile($userInfo = [])
+    public function profile($userInfo = null)
     {
-        if(empty($userInfo)) {
-            return $this->execGetRequest([], UrlBuilder::RESOURCE_GET_USER_SETTINGS);
+        // If we call method without params, return current user profile data.
+        if (empty($userInfo)) {
+            return $this->getProfile();
         }
 
-        if (isset($userInfo['profile_image'])) {
-            $userInfo['profile_image_url'] = $this->upload($userInfo['profile_image']);
-        }
-
-        return $this->execPostRequest($userInfo, UrlBuilder::RESOURCE_UPDATE_USER_SETTINGS);
-    }
-
-    /**
-     * Convert your account to a business one.
-     *
-     * @param string $businessName
-     * @param string $websiteUrl
-     * @return bool
-     */
-    public function convertToBusiness($businessName, $websiteUrl = '')
-    {
-        $data = [
-            'business_name' => $businessName,
-            'website_url'   => $websiteUrl,
-            'account_type'  => self::ACCOUNT_TYPE_OTHER,
-        ];
-
-        return $this->execPostRequest($data, UrlBuilder::RESOURCE_CONVERT_TO_BUSINESS);
+        return $this->updateProfile($userInfo);
     }
 
     /**
@@ -73,11 +53,7 @@ class User extends Provider
      */
     public function isBanned()
     {
-        $profile = $this->profile();
-
-       return isset($profile['is_write_banned']) ?
-           (bool)$profile['is_write_banned'] :
-           false;
+        return (bool)$this->getProfileData('is_write_banned');
     }
 
     /**
@@ -87,9 +63,17 @@ class User extends Provider
      */
     public function username()
     {
-        $profile = $this->profile();
+        return $this->getProfileData('username');
+    }
 
-        return isset($profile['username']) ? $profile['username'] : '';
+    /**
+     * Returns current user id
+     *
+     * @return string
+     */
+    public function id()
+    {
+        return $this->getProfileData('id');
     }
 
     /**
@@ -101,17 +85,19 @@ class User extends Provider
      */
     public function deactivate($reason = 'other', $explanation = '')
     {
-        $profile = $this->profile();
+        $userId = $this->id();
 
-        if(!isset($profile['id'])) return false;
+        if ($userId === null) {
+            return false;
+        }
 
         $request = [
-            'user_id'     => $profile['id'],
+            'user_id'     => $userId,
             'reason'      => $reason,
             'explanation' => $explanation,
         ];
 
-        return $this->execPostRequest($request, UrlBuilder::RESOURCE_DEACTIVATE_ACCOUNT);
+        return $this->post(UrlBuilder::RESOURCE_DEACTIVATE_ACCOUNT, $request);
     }
 
     /**
@@ -126,6 +112,71 @@ class User extends Provider
             'type'  => 'email',
         ];
 
-        return $this->execPostRequest($data, UrlBuilder::RESOURCE_INVITE);
+        return $this->post(UrlBuilder::RESOURCE_INVITE, $data);
+    }
+
+    /**
+     * Remove things you’ve recently searched for from search suggestions.
+     * @return bool|Response
+     */
+    public function clearSearchHistory()
+    {
+        return $this->post(UrlBuilder::RESOURCE_CLEAR_SEARCH_HISTORY);
+    }
+
+    /**
+     * Simply makes GET request to some url.
+     * @param string $url
+     * @return array|bool
+     */
+    public function visitPage($url = '')
+    {
+        return $this->get($url);
+    }
+
+    /**
+     * Get your account sessions history
+     * @return array
+     */
+    public function sessionsHistory()
+    {
+        return $this->get(UrlBuilder::RESOURCE_SESSIONS_HISTORY);
+    }
+
+    /**
+     * @return array
+     */
+    protected function getProfile()
+    {
+        return $this->get(UrlBuilder::RESOURCE_GET_USER_SETTINGS);
+    }
+
+    /**
+     * @param array|Profile $userInfo
+     * @return bool|Response
+     */
+    protected function updateProfile($userInfo)
+    {
+        // If we have a form object, convert it to array
+        if ($userInfo instanceof Profile) {
+            $userInfo = $userInfo->toArray();
+        }
+
+        if (isset($userInfo['profile_image'])) {
+            $userInfo['profile_image_url'] = $this->upload($userInfo['profile_image']);
+        }
+
+        return $this->post(UrlBuilder::RESOURCE_UPDATE_USER_SETTINGS, $userInfo);
+    }
+
+    /**
+     * @param string $key
+     * @return mixed|string
+     */
+    protected function getProfileData($key)
+    {
+        $profile = $this->getProfile();
+
+        return $profile[$key] ?? '';
     }
 }

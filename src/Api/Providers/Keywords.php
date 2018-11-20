@@ -3,13 +3,14 @@
 namespace seregazhuk\PinterestBot\Api\Providers;
 
 use seregazhuk\PinterestBot\Helpers\UrlBuilder;
+use seregazhuk\PinterestBot\Api\Providers\Core\Provider;
 
 class Keywords extends Provider
 {
     /**
-     * Get recommendations for query word. 
-     * 
-     * @param $query
+     * Get recommendations for query word.
+     *
+     * @param string $query
      * @return array|bool
      */
     public function recommendedFor($query)
@@ -19,9 +20,9 @@ class Keywords extends Provider
             'query' => $query,
         ];
 
-        $result = $this->execGetRequest($requestOptions, UrlBuilder::getSearchUrl());
+        $result = $this->get(UrlBuilder::RESOURCE_SEARCH, $requestOptions);
 
-        return $this->getKeywordsFromRequest($result);
+        return empty($result) ? [] : $this->getKeywordsFromRequest($result);
     }
 
     /**
@@ -32,7 +33,9 @@ class Keywords extends Provider
     {
         $keywords = $response['guides'];
 
-        if (!isset($keywords)) return [];
+        if (empty($keywords)) {
+            return [];
+        }
 
         return array_map(function ($keywordData) {
             return [

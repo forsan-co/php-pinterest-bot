@@ -2,24 +2,18 @@
 
 namespace seregazhuk\PinterestBot\Api\Traits;
 
-use Generator;
-use seregazhuk\PinterestBot\Api\Request;
-use seregazhuk\PinterestBot\Api\Response;
-use seregazhuk\PinterestBot\Helpers\UrlBuilder;
 use seregazhuk\PinterestBot\Api\SearchResponse;
+use seregazhuk\PinterestBot\Helpers\Pagination;
+use seregazhuk\PinterestBot\Helpers\UrlBuilder;
 
 /**
  * Trait Searchable
  *
  * @property string $searchScope
- * @property Request request
- * @property Response $response
  */
 trait Searchable
 {
-    use HandlesRequest;
-    
-    protected $moduleSearchPage = 'SearchPage';
+    use HasPagination, HandlesRequest;
 
     /**
      * @return string
@@ -34,43 +28,24 @@ trait Searchable
      *
      * @param string $query
      * @param string $scope
-     * @param array  $bookmarks
-     *
      * @return SearchResponse
      */
-    public function searchCall($query, $scope, $bookmarks = [])
+    protected function execSearchRequest($query, $scope)
     {
-        $url = UrlBuilder::getSearchUrl($bookmarks);
-        $get = $this->createSearchQuery($query, $scope, $bookmarks);
-        $result = $this->request->exec($url . '?' . $get);
+        $url = $this->getResponse()->hasBookmarks() ?
+            UrlBuilder::RESOURCE_SEARCH_WITH_PAGINATION :
+            UrlBuilder::RESOURCE_SEARCH;
 
-        $this->processResult($result);
+        $requestOptions = [
+            'scope' => $scope,
+            'query' => $query,
+        ];
 
-        return new SearchResponse($this->response);
-    }
+        $this->get($url, $requestOptions);
 
-    /**
-     * Creates Pinterest API search request.
-     *
-     * @param string $query
-     * @param string $scope
-     * @param array $bookmarks
-     *
-     * @return string
-     */
-    protected function createSearchQuery($query, $scope, $bookmarks = [])
-    {
-        $dataJson = $this->appendBookMarks(
-            $bookmarks,
-            [
-                'scope' => $scope,
-                'query' => $query
-            ]
+        return new SearchResponse(
+            $this->getResponse()->getRawData()
         );
-
-        $request = Request::createRequestData($dataJson, $bookmarks);
-
-        return UrlBuilder::buildRequestString($request);
     }
 
     /**
@@ -79,58 +54,12 @@ trait Searchable
      * @param string $query
      * @param int $limit
      *
-     * @return \Iterator
+     * @return Pagination
      */
-    public function search($query, $limit = 0)
+    public function search($query, $limit = Pagination::DEFAULT_LIMIT)
     {
-        return $this->getPaginatedResponse(
-            [
-                'query' => $query,
-                'scope' => $this->getSearchScope(),
-            ],
-            $limit,
-            'searchCall'
-        );
+        return $this->paginateCustom(function () use ($query) {
+            return $this->execSearchRequest($query, $this->getSearchScope());
+        })->take($limit);
     }
-
-    /**
-     * @param array $bookmarks
-     * @param array $options
-     *
-     * @return array
-     */
-    protected function appendBookMarks($bookmarks, $options)
-    {
-        $dataJson = ['options' => $options];
-        if (!empty($bookmarks)) {
-            $dataJson['options']['bookmarks'] = $bookmarks;
-
-            return $dataJson;
-        }
-
-        $dataJson = array_merge(
-            $dataJson, [
-                'module' => [
-                    "name"    => $this->moduleSearchPage,
-                    "options" => $options,
-                ],
-            ]
-        );
-
-        return $dataJson;
-    }
-
-    /**
-     * @param array $params
-     * @param int $limit
-     * @param string $method
-     * @return Generator
-     */
-    abstract protected function getPaginatedResponse(array $params, $limit, $method = 'getPaginatedData');
-
-    /**
-     * @param string $res
-     * @return Response
-     */
-    abstract protected function processResult($res);
 }

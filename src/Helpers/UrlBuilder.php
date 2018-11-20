@@ -22,7 +22,7 @@ class UrlBuilder
      * Boards
      */
     const RESOURCE_GET_BOARDS = 'resource/BoardsResource/get/';
-    const RESOURCE_GET_BOARD = 'resource/BoardResource/get';
+    const RESOURCE_GET_BOARD = 'resource/BoardResource/get/';
     const RESOURCE_GET_BOARD_FEED = 'resource/BoardFeedResource/get/';
     const RESOURCE_PROFILE_BOARDS = 'resource/ProfileBoardsResource/get/';
     const RESOURCE_FOLLOW_BOARD = 'resource/BoardFollowResource/create/';
@@ -33,6 +33,20 @@ class UrlBuilder
     const RESOURCE_BOARD_FOLLOWERS = 'resource/BoardFollowersResource/get/';
     const RESOURCE_FOLLOWING_BOARDS = 'resource/BoardFollowingResource/get/';
     const RESOURCE_TITLE_SUGGESTIONS = 'resource/BoardTitleSuggestionsResource/get';
+    const RESOURCE_BOARDS_INVITES = 'resource/BoardInvitesResource/get/';
+    const RESOURCE_CREATE_USER_ID_INVITE = 'resource/BoardInviteResource/create';
+    const RESOURCE_CREATE_EMAIL_INVITE = 'resource/BoardEmailInviteResource/create/';
+    const RESOURCE_ACCEPT_INVITE = 'resource/BoardInviteResource/update/';
+    const RESOURCE_DELETE_INVITE = 'resource/BoardInviteResource/delete/';
+    const RESOURCE_LEAVE_BOARD = 'resource/BoardCollaboratorResource/delete/';
+
+    /**
+     * Board section
+     */
+    const RESOURCE_GET_BOARD_SECTIONS = 'resource/BoardSectionsResource/get/';
+    const RESOURCE_ADD_BOARD_SECTION = 'resource/BoardSectionResource/create/';
+    const RESOURCE_EDIT_BOARD_SECTION = 'resource/BoardSectionEditResource/create/';
+    const RESOURCE_DELETE_BOARD_SECTION = 'resource/BoardSectionEditResource/delete/';
 
     /**
      * Pins
@@ -44,17 +58,24 @@ class UrlBuilder
     const RESOURCE_DELETE_PIN = 'resource/PinResource/delete/';
     const RESOURCE_LIKE_PIN = 'resource/PinLikeResource/create/';
     const RESOURCE_UNLIKE_PIN = 'resource/PinLikeResource/delete/';
-    const RESOURCE_COMMENT_PIN = 'resource/PinCommentResource/create/';
-    const RESOURCE_COMMENT_DELETE_PIN = 'resource/PinCommentResource/delete/';
+    const RESOURCE_COMMENT_PIN = 'resource/AggregatedCommentResource/create/';
+    const RESOURCE_COMMENT_DELETE_PIN = 'resource/AggregatedCommentResource/delete/';
     const RESOURCE_PIN_INFO = 'resource/PinResource/get/';
-    const RESOURCE_DOMAIN_FEED = 'resource/DomainFeedResource/get';
-    const RESOURCE_ACTIVITY = 'resource/AggregatedActivityFeedResource/get';
+    const RESOURCE_DOMAIN_FEED = 'resource/DomainFeedResource/get/';
+    const RESOURCE_ACTIVITY = 'resource/AggregatedActivityFeedResource/get/';
     const RESOURCE_USER_FEED = 'resource/UserHomefeedResource/get/';
-    const RESOURCE_RELATED_PINS = 'resource/RelatedPinFeedResource/get';
-    const RESOURCE_VISUAL_SIMILAR_PINS = 'resource/VisualLiveSearchResource/get';
+    const RESOURCE_RELATED_PINS = 'resource/RelatedPinFeedResource/get/';
+    const RESOURCE_VISUAL_SIMILAR_PINS = 'resource/VisualLiveSearchResource/get/';
     const RESOURCE_BULK_COPY = 'resource/BulkEditResource/create/';
     const RESOURCE_BULK_MOVE = 'resource/BulkEditResource/update/';
     const RESOURCE_BULK_DELETE = 'resource/BulkEditResource/delete/';
+    const RESOURCE_EXPLORE_PINS = 'resource/ExploreSectionFeedResource/get/';
+    const RESOURCE_PIN_ANALYTICS = 'resource/OnPinAnalyticsResource/get/';
+    const RESOURCE_TRY_PIN_CREATE = 'resource/DidItActivityResource/create/';
+    const RESOURCE_TRY_PIN_EDIT = 'resource/DidItActivityResource/update/';
+    const RESOURCE_TRY_PIN_DELETE = 'resource/DidItActivityResource/delete/';
+    const RESOURCE_TRY_PIN_IMAGE_UPLOAD = 'resource/DidItImageUploadResource/create/';
+    const RESOURCE_SHARE_VIA_SOCIAL = 'resource/CreateExternalInviteResource/create/';
 
     /**
      * Pinners
@@ -65,12 +86,19 @@ class UrlBuilder
     const RESOURCE_USER_FOLLOWING = 'resource/UserFollowingResource/get/';
     const RESOURCE_USER_PINS = 'resource/UserPinsResource/get/';
     const RESOURCE_USER_LIKES = 'resource/UserLikesResource/get/';
+    const RESOURCE_USER_TRIED = 'resource/DidItUserFeedResource/get/';
+
+    const RESOURCE_CONTACTS_REQUESTS = 'resource/ContactRequestsResource/get';
+    const RESOURCE_CONTACT_REQUEST_ACCEPT = 'resource/ContactRequestAcceptResource/update/';
+    const RESOURCE_CONTACT_REQUEST_IGNORE = 'resource/ContactRequestIgnoreResource/delete/';
 
     /**
      * Search
      */
     const RESOURCE_SEARCH = 'resource/BaseSearchResource/get/';
     const RESOURCE_SEARCH_WITH_PAGINATION = 'resource/SearchResource/get/';
+    const RESOURCE_TYPE_AHEAD_SUGGESTIONS = 'resource/AdvancedTypeaheadResource/get';
+    const RESOURCE_HASHTAG_TYPE_AHEAD_SUGGESTIONS = 'resource/HashtagTypeaheadResource/get';
 
     /**
      * Interests.
@@ -83,6 +111,7 @@ class UrlBuilder
      * Conversations.
      */
     const RESOURCE_SEND_MESSAGE = 'resource/ConversationsResource/create/';
+    const RESOURCE_GET_CONVERSATION_MESSAGES = 'resource/ConversationMessagesResource/get/';
     const RESOURCE_GET_LAST_CONVERSATIONS = 'resource/ConversationsResource/get/';
 
     /**
@@ -93,17 +122,24 @@ class UrlBuilder
     const RESOURCE_CHANGE_PASSWORD = 'resource/UserPasswordResource/update/';
     const RESOURCE_DEACTIVATE_ACCOUNT = 'resource/DeactivateAccountResource/create/';
     const RESOURCE_BLOCK_USER = 'resource/UserBlockResource/create/';
+    const RESOURCE_CLEAR_SEARCH_HISTORY = 'resource/TypeaheadClearRecentResource/delete/';
+    const RESOURCE_SESSIONS_HISTORY = 'resource/UserSessionStoreResource/get/';
+    const RESOURCE_AVAILABLE_LOCALES = 'resource/LocalesResource/get/';
+    const RESOURCE_AVAILABLE_COUNTRIES = 'resource/CountriesResource/get/';
+    const RESOURCE_AVAILABLE_ACCOUNT_TYPES = 'resource/BusinessTypesResource/get/';
 
     /**
      * News
      */
     const RESOURCE_GET_LATEST_NEWS = 'resource/NetworkStoriesResource/get/';
+    const RESOURCE_GET_NOTIFICATIONS = 'resource/NewsHubResource/get/';
+    const RESOURCE_GET_NEWS_HUB_DETAILS = 'resource/NewsHubDetailsResource/get/';
 
     /**
      * Registration
      */
     const RESOURCE_CREATE_REGISTER = 'resource/UserRegisterResource/create/';
-    const RESOURCE_CHECK_EMAIL = 'resource/EmailExistsResource/get';
+    const RESOURCE_CHECK_EMAIL = 'resource/EmailExistsResource/get/';
     const RESOURCE_SET_ORIENTATION = 'resource/OrientationContextResource/create/';
     const RESOURCE_UPDATE_REGISTRATION_TRACK = 'resource/UserRegisterTrackActionResource/update/';
     const RESOURCE_REGISTRATION_COMPLETE = 'resource/UserExperienceCompletedResource/update/';
@@ -120,13 +156,14 @@ class UrlBuilder
     const RESOURCE_GET_CATEGORIES = 'resource/CategoriesResource/get/';
     const RESOURCE_GET_CATEGORY = 'resource/CategoryResource/get/';
     const RESOURCE_GET_CATEGORIES_RELATED = 'resource/RelatedInterestsResource/get/';
-    const RESOURCE_GET_CATEGORY_FEED = 'resource/CategoryFeedResource/get';
+    const RESOURCE_GET_CATEGORY_FEED = 'resource/CategoryFeedResource/get/';
 
     /**
      * Topics
      */
-    const RESOURCE_GET_TOPIC_FEED = 'resource/TopicFeedResource/get';
-    const RESOURCE_GET_TOPIC = 'resource/TopicResource/get';
+    const RESOURCE_GET_TOPIC_FEED = 'resource/TopicFeedResource/get/';
+    const RESOURCE_GET_TOPIC = 'resource/TopicResource/get/';
+    const RESOURCE_EXPLORE_SECTIONS = 'resource/ExploreSectionsResource/get/';
 
     /**
      * Invite
@@ -159,7 +196,7 @@ class UrlBuilder
      */
     public static function buildApiUrl($resourceUrl)
     {
-        if(strpos($resourceUrl, 'http') !== false) {
+        if (strpos($resourceUrl, 'http') === 0) {
             return $resourceUrl;
         }
 
@@ -180,19 +217,6 @@ class UrlBuilder
         );
     }
 
-    /**
-     * Return Pinterest API url for search requests.
-     *
-     * @param array $bookmarks
-     * 
-     * @return string
-     */
-    public static function getSearchUrl($bookmarks = [])
-    {
-        return empty($bookmarks) ?
-            self::RESOURCE_SEARCH :
-            self::RESOURCE_SEARCH_WITH_PAGINATION;
-    }
 
     /**
      * @param string $type
@@ -206,7 +230,7 @@ class UrlBuilder
             self::FOLLOWING_PEOPLE    => self::RESOURCE_USER_FOLLOWING,
         ];
 
-        if(array_key_exists($type, $urls)) {
+        if (array_key_exists($type, $urls)) {
             return $urls[$type];
         }
 

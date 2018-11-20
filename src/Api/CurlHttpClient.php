@@ -7,7 +7,7 @@ use seregazhuk\PinterestBot\Helpers\UrlBuilder;
 use seregazhuk\PinterestBot\Api\Contracts\HttpClient;
 
 /**
- * Class CurlAdapter.
+ * Class CurlHttpClient.
  */
 class CurlHttpClient implements HttpClient
 {
@@ -17,7 +17,7 @@ class CurlHttpClient implements HttpClient
      * @var array
      */
     protected $options = [
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (X11; Linux x86_64; rv:31.0) Gecko/20100101 Firefox/31.0'
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.95 Safari/537.36'
     ];
 
     /**
@@ -62,14 +62,16 @@ class CurlHttpClient implements HttpClient
     }
 
     /**
-     * Load cookies for specified username
+     * Load cookies for a specified username. If a username is empty
+     * we use a common file for all the anonymous requests.
      *
      * @param string $username
      * @return HttpClient
      */
     public function loadCookies($username = '')
     {
-        return $this->initCookieJar($username)
+        return $this
+            ->initCookieJar($username)
             ->fillCookies();
     }
 
@@ -93,7 +95,7 @@ class CurlHttpClient implements HttpClient
      */
     protected function callCurl()
     {
-        $res = curl_exec($this->curl);
+        $result = curl_exec($this->curl);
 
         $this->currentUrl = curl_getinfo($this->curl, CURLINFO_EFFECTIVE_URL);
 
@@ -101,7 +103,7 @@ class CurlHttpClient implements HttpClient
 
         $this->fillCookies();
 
-        return $res;
+        return $result;
     }
 
     /**
@@ -133,14 +135,15 @@ class CurlHttpClient implements HttpClient
     protected function getDefaultHttpOptions()
     {
         return [
+            CURLOPT_REFERER        => UrlBuilder::URL_BASE,
+            CURLOPT_ENCODING       => 'gzip,deflate,br',
+            CURLOPT_FRESH_CONNECT  => true,
+            CURLOPT_HTTPHEADER     => $this->headers,
+            CURLOPT_COOKIEFILE     => $this->cookieJar,
+            CURLOPT_COOKIEJAR      => $this->cookieJar,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_ENCODING       => 'gzip,deflate',
-            CURLOPT_HTTPHEADER     => $this->headers,
-            CURLOPT_REFERER        => UrlBuilder::URL_BASE,
-            CURLOPT_COOKIEFILE     => $this->cookieJar,
-            CURLOPT_COOKIEJAR      => $this->cookieJar,
         ];
     }
 
@@ -153,7 +156,7 @@ class CurlHttpClient implements HttpClient
      */
     protected function makeHttpOptions($postString = '')
     {
-        // Union custom Curl options and default.
+        // Union custom Curl options and default ones.
         $options = array_replace(
             $this->options,
             $this->getDefaultHttpOptions()
@@ -170,8 +173,9 @@ class CurlHttpClient implements HttpClient
     /**
      * Set custom Curl options to override default
      *
+     * @codeCoverageIgnore
      * @param array $options
-     * @return CurlHttpClient
+     * @return HttpClient
      */
     public function setOptions(array $options)
     {
@@ -203,6 +207,8 @@ class CurlHttpClient implements HttpClient
 
     /**
      * Set directory to store all cookie files.
+     *
+     * @codeCoverageIgnore
      * @param string $path
      * @return $this
      */
@@ -222,18 +228,16 @@ class CurlHttpClient implements HttpClient
             unlink($this->cookieJar);
         }
 
+        $this->cookieJar = null;
+
         return $this;
     }
 
     /**
-     * Init cookie file for a specified username. If username is empty we use
-     * common cookie file for all sessions. If file does not exist it will
-     * be created in system temp directory.
-     *
      * @param $username
      * @return $this
      */
-    protected function initCookieJar($username = '')
+    protected function initCookieJar($username)
     {
         $this->cookieJar = $this->initCookieFile($username);
 
@@ -241,19 +245,13 @@ class CurlHttpClient implements HttpClient
     }
 
     /**
-     * Returns cookie file name by username. If username is empty we use a
-     * random cookie name, to be sure we have different cookies
-     * in parallel sessions.
+     * Returns cookie file name according to the provided username.
      *
      * @param string $username
      * @return string
      */
     protected function initCookieFile($username)
     {
-        if(empty($username)) {
-            return tempnam($this->getCookiesPath(), self::COOKIE_PREFIX);
-        }
-
         $cookieName = self::COOKIE_PREFIX . $username;
         $cookieFilePath = $this->getCookiesPath() . DIRECTORY_SEPARATOR . $cookieName;
 
@@ -277,16 +275,73 @@ class CurlHttpClient implements HttpClient
      */
     protected function fillCookies()
     {
-        $this->cookies->fill($this->cookieJar);
+        if (!empty($this->cookieJar)) {
+            $this->cookies->fill($this->cookieJar);
+        }
 
         return $this;
     }
 
     /**
+     * @codeCoverageIgnore
      * @return string
      */
     public function getCurrentUrl()
     {
         return $this->currentUrl;
+    }
+
+    /**
+     * @param string $host '192.168.1.1'
+     * @param string $port '12345'
+     * @param string $auth Authentication string: 'username:password'
+     * @param string $type HTTP|SOCKS
+     * @return HttpClient
+     */
+    public function useProxy($host, $port, $auth = null, $type = null)
+    {
+        $proxy = [
+            CURLOPT_PROXY     => $host,
+            CURLOPT_PROXYPORT => $port,
+            CURLOPT_PROXYTYPE => $type ?: CURLPROXY_HTTP,
+        ];
+
+        if (null !== $auth) {
+            $proxy[CURLOPT_PROXYUSERPWD] = $auth;
+        }
+
+        return $this->setOptions($proxy);
+    }
+
+    public function dontUseProxy()
+    {
+        unset(
+            $this->options[CURLOPT_PROXY],
+            $this->options[CURLOPT_PROXYPORT],
+            $this->options[CURLOPT_PROXYTYPE],
+            $this->options[CURLOPT_PROXYUSERPWD]
+        );
+
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function usesProxy()
+    {
+        return isset($this->options[CURLOPT_PROXY]);
+    }
+
+    /**
+     * @codeCoverageIgnore
+     * @param string $host
+     * @param string $port
+     * @param null $auth
+     * @return HttpClient
+     */
+    public function useSocksProxy($host, $port, $auth = null)
+    {
+        return $this->useProxy($host, $port, CURLPROXY_SOCKS5, $auth);
     }
 }

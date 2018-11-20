@@ -2,17 +2,17 @@
 
 namespace seregazhuk\PinterestBot\Api;
 
-use seregazhuk\PinterestBot\Api\Contracts\HttpClient;
-use seregazhuk\PinterestBot\Exceptions\InvalidRequest;
-use seregazhuk\PinterestBot\Helpers\Cookies;
 use seregazhuk\PinterestBot\Helpers\FileHelper;
 use seregazhuk\PinterestBot\Helpers\UrlBuilder;
+use seregazhuk\PinterestBot\Api\Contracts\HttpClient;
+use seregazhuk\PinterestBot\Exceptions\InvalidRequest;
 
 /**
  * Class Request.
  */
 class Request
 {
+    const DEFAULT_TOKEN = '1234';
 
     /**
      * @var HttpClient
@@ -41,12 +41,6 @@ class Request
     protected $postFileData;
 
     /**
-     * @var array|null
-     */
-    protected $lastError;
-
-
-    /**
      * Common headers needed for every query.
      *
      * @var array
@@ -57,9 +51,10 @@ class Request
         'DNT: 1',
         'X-Pinterest-AppState: active',
         'X-NEW-APP: 1',
-        'X-APP-VERSION: 2414ec2',
+        'X-APP-VERSION: f9d1262',
+        'X-Pinterest-AppState:active',
         'X-Requested-With: XMLHttpRequest',
-    ];
+];
 
     /**
      * @param HttpClient $http
@@ -74,7 +69,6 @@ class Request
      * @param string $pathToFile
      * @param string $url
      * @return string
-     * @throws InvalidRequest
      */
     public function upload($pathToFile, $url)
     {
@@ -101,6 +95,8 @@ class Request
             ->httpClient
             ->execute($url, $postString, $headers);
 
+        $this->setTokenFromCookies();
+
         $this->filePathToUpload = null;
 
         return $result;
@@ -112,22 +108,29 @@ class Request
     protected function getHttpHeaders()
     {
         $headers = $this->getDefaultHttpHeaders();
-        if ($this->csrfToken == Cookies::DEFAULT_TOKEN) {
-            $headers[] = 'Cookie: csrftoken=' . Cookies::DEFAULT_TOKEN . ';';
+        if ($this->csrfToken === self::DEFAULT_TOKEN) {
+            $headers[] = 'Cookie: csrftoken=' . self::DEFAULT_TOKEN . ';';
         }
 
         return $headers;
     }
 
+    /**
+     * @return bool
+     */
+    public function hasToken()
+    {
+        return !empty($this->csrfToken) && $this->csrfToken !== self::DEFAULT_TOKEN;
+    }
     
     /**
      * Clear token information.
      *
      * @return $this
      */
-    public function clearToken()
+    protected function clearToken()
     {
-        $this->csrfToken = Cookies::DEFAULT_TOKEN;
+        $this->csrfToken = self::DEFAULT_TOKEN;
 
         return $this;
     }
@@ -139,9 +142,9 @@ class Request
      */
     public function autoLogin($username)
     {
-        $this->httpClient->loadCookies($username);
+        $this->loadCookiesFor($username);
 
-        if(!$this->httpClient->cookie('_auth')) {
+        if (!$this->httpClient->cookie('_auth')) {
             return false;
         }
 
@@ -151,31 +154,38 @@ class Request
     }
 
     /**
+     * @param string $username
+     * @return $this
+     */
+    public function loadCookiesFor($username)
+    {
+        $this->dropCookies();
+        $this->httpClient->loadCookies($username);
+
+        return $this;
+    }
+
+    /**
      * Mark client as logged.
      */
     public function login()
     {
         $this->setTokenFromCookies();
 
-        if(!empty($this->csrfToken)) {
+        if (!empty($this->csrfToken)) {
             $this->loggedIn = true;
         }
+
+        return $this;
     }
 
     /**
-     * Mark client as logged out. If $removeCookies parameter
-     * is set removes cookies file.
-     *
-     * @param bool $removeCookies
+     * Mark client as logged out.
      */
-    public function logout($removeCookies = false)
+    public function logout()
     {
         $this->clearToken();
         $this->loggedIn = false;
-
-        if($removeCookies) {
-            $this->httpClient->removeCookies();
-        }
     }
 
     /**
@@ -191,29 +201,25 @@ class Request
     /**
      * Create request string.
      *
-     * @param array  $data
-     * @param array  $bookmarks
-     *
+     * @param array $data
+     * @param array|null $bookmarks
      * @return string
      */
-    public static function createQuery(array $data = [], $bookmarks = [])
+    public function createQuery(array $data = [], array $bookmarks = [])
     {
-        $data = empty($data) ? new \stdClass() : $data;
+        $data = empty($data) ? [] : $data;
 
-        $request = self::createRequestData(
-            ['options' => $data], $bookmarks
-        );
+        $request = $this->createRequestData(['options' => $data], $bookmarks);
 
         return UrlBuilder::buildRequestString($request);
     }
 
     /**
      * @param array|object $data
-     * @param array        $bookmarks
-     *
+     * @param array $bookmarks
      * @return array
      */
-    public static function createRequestData(array $data = [], $bookmarks = [])
+    public function createRequestData(array $data = [], array $bookmarks = [])
     {
         if (!empty($bookmarks)) {
             $data['options']['bookmarks'] = $bookmarks;
@@ -232,13 +238,15 @@ class Request
     }
 
     /**
-     * Trying to get csrf token from cookies.
+     * Trying to execGet csrf token from cookies.
      *
      * @return $this
      */
-    public function setTokenFromCookies()
+    protected function setTokenFromCookies()
     {
-        $this->csrfToken = $this->httpClient->cookie('csrftoken');
+        if ($token = $this->httpClient->cookie('csrftoken')) {
+            $this->csrfToken = $token;
+        }
 
         return $this;
     }
@@ -253,6 +261,7 @@ class Request
             $this->getContentTypeHeader(),
             [
                 'Host: ' . UrlBuilder::HOST,
+                'Origin: ' . UrlBuilder::URL_BASE,
                 'X-CSRFToken: ' . $this->csrfToken
             ]
         );
@@ -274,6 +283,7 @@ class Request
     /**
      * @param string $delimiter
      * @return $this
+     * @throws InvalidRequest
      */
     protected function buildFilePostData($delimiter)
     {
@@ -290,6 +300,7 @@ class Request
 
     /**
      * @return array
+     * @throws InvalidRequest
      */
     protected function makeHeadersForUpload()
     {
@@ -303,18 +314,29 @@ class Request
     }
 
     /**
-     * @return array|null
-     */
-    public function getLastError()
-    {
-        return $this->lastError;
-    }
-
-    /**
      * @return HttpClient
      */
     public function getHttpClient()
     {
         return $this->httpClient;
+    }
+
+    /**
+     * @return string
+     */
+    public function getCurrentUrl()
+    {
+        return $this->httpClient->getCurrentUrl();
+    }
+
+    /**
+     * @return $this
+     */
+    public function dropCookies()
+    {
+        $this->httpClient->removeCookies();
+        $this->clearToken();
+
+        return $this;
     }
 }

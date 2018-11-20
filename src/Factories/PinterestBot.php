@@ -2,7 +2,6 @@
 
 namespace seregazhuk\PinterestBot\Factories;
 
-use seregazhuk\PinterestBot\Bot;
 use seregazhuk\PinterestBot\Api\Request;
 use seregazhuk\PinterestBot\Api\Response;
 use seregazhuk\PinterestBot\Helpers\Cookies;
@@ -14,15 +13,14 @@ class PinterestBot
     /**
      * Initializes Bot instance and all its dependencies.
      *
-     * @return Bot
+     * @return ProvidersContainer
      */
     public static function create()
     {
         $request = self::makeRequest();
+        $response = self::makeResponse();
 
-        $providersContainer = new ProvidersContainer($request, new Response());
-
-        return new Bot($providersContainer);
+        return self::buildProvidersContainer($request, $response);
     }
 
     /**
@@ -30,21 +28,41 @@ class PinterestBot
      */
     protected static function makeRequest()
     {
-        $httpClient = new CurlHttpClient(new Cookies());
+        $httpClient = self::buildHttpClient();
 
         return new Request($httpClient);
     }
 
     /**
-     * @codeCoverageIgnore
+     * @return Response
      */
+    protected static function makeResponse()
+    {
+        return new Response();
+    }
+
+    /**
+     * @return CurlHttpClient
+     */
+    protected static function buildHttpClient()
+    {
+        return new CurlHttpClient(new Cookies());
+    }
+
+    /**
+     * @param $request
+     * @param $response
+     * @return ProvidersContainer
+     */
+    protected static function buildProvidersContainer(Request $request, Response $response)
+    {
+        return new ProvidersContainer($request, $response);
+    }
+
     private function __construct()
     {
     }
 
-    /**
-     * @codeCoverageIgnore
-     */
     private function __clone()
     {
     }

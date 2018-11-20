@@ -5,10 +5,18 @@ namespace seregazhuk\tests\Helpers;
 /**
  * Class ResponseHelper.
  *
- * Helper for creating different dummy responses for testing
+ * Helper for creating different dummy responses for testing purposes.
  */
 trait ResponseHelper
 {
+    /**
+     * @var array
+     */
+    protected $paginatedResponse = [
+        ['id' => 1],
+        ['id' => 2],
+    ];
+
     /**
      * Create a dummy response from Pinterest.
      *
@@ -16,7 +24,7 @@ trait ResponseHelper
      *
      * @return array
      */
-    public function createApiResponse($data = [])
+    public function createApiResponse(array $data = [])
     {
         return ['resource_response' => $data];
     }
@@ -24,11 +32,12 @@ trait ResponseHelper
     /**
      * Create a success dummy response.
      *
+     * @param mixed $data
      * @return array
      */
-    public function createSuccessApiResponse()
+    public function createSuccessApiResponse($data = 'success')
     {
-        return $this->createApiResponse(['data' => 'success']);
+        return $this->createApiResponse(['data' => $data]);
     }
 
     /**
@@ -49,98 +58,38 @@ trait ResponseHelper
     }
 
     /**
-     * Create a dummy paginated response.
+     * Create an error dummy response.
      *
+     * @param string $error
      * @return array
      */
-    public function createPaginatedResponse()
+    public function createErrorApiResponseWithCode($error = 'error')
+    {
+        return $this->createApiResponse(
+            [
+                'error' => [
+                    'code' => $error,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Create a dummy paginated response.
+     *
+     * @param mixed $response
+     * @param string $bookmarks
+     * @return array
+     */
+    public function createPaginatedResponse($response, $bookmarks = '')
     {
         return [
             'resource_response' => [
-                'data' => [
-                    ['id' => 1],
-                    ['id' => 2],
-                ],
+                'data' => $response,
             ],
+            'resource' => [
+                'options' => ['bookmarks' => [$bookmarks]]
+            ]
         ];
-    }
-
-    /**
-     * @param array|null $response
-     * @param int $times
-     * @param string $method
-     * @return $this
-     */
-    public function apiShouldReturn($response = [], $times = 1, $method = 'exec')
-    {
-        $this->request
-            ->shouldReceive($method)
-            ->times($times)
-            ->andReturn(json_encode($response));
-
-        return $this;
-    }
-
-    /**
-     * @param int $times
-     * @return $this
-     */
-    public function apiShouldReturnEmpty($times = 1)
-    {
-        return $this->apiShouldReturnData([], $times);
-    }
-
-    /**
-     * @param mixed $data
-     * @param int $times
-     * @return $this
-     */
-    public function apiShouldReturnData($data, $times = 1)
-    {
-        return $this->apiShouldReturn(['resource_response' => ['data' => $data]], $times);
-    }
-
-    /**
-     * @param int $times
-     * @return $this
-     */
-    public function apiShouldReturnSuccess($times = 1)
-    {
-        return $this->apiShouldReturn(
-            $this->createSuccessApiResponse(),
-            $times
-        );
-    }
-
-    /**
-     * @param int $times
-     * @return $this
-     */
-    public function apiShouldReturnError($times = 1)
-    {
-        return $this->apiShouldReturn(
-            $this->createErrorApiResponse(),
-            $times
-        );
-    }
-
-    /**
-     * @return $this
-     */
-    public function apiShouldReturnPagination()
-    {
-        return $this->apiShouldReturn(
-            $this->createPaginatedResponse()
-        );
-    }
-
-    /**
-     * @param mixed $response
-     * @param int $count
-     */
-    public function assertIsPaginatedResponse($response, $count = 2)
-    {
-        $this->assertInstanceOf(\Generator::class, $response);
-        $this->assertCount($count, iterator_to_array($response));
     }
 }

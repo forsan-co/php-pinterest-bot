@@ -5,11 +5,6 @@ namespace seregazhuk\PinterestBot\Api\Contracts;
 interface PaginatedResponse
 {
     /**
-     * @return bool
-     */
-    public function hasResponseData();
-
-    /**
      * Parse bookmarks from response.
      *
      * @return array
@@ -17,7 +12,17 @@ interface PaginatedResponse
     public function getBookmarks();
 
     /**
+     * @return bool
+     */
+    public function hasBookmarks();
+
+    /**
      * @return array|bool
      */
     public function getResponseData();
+
+    /**
+     * @return bool
+     */
+    public function isEmpty();
 }

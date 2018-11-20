@@ -4,7 +4,7 @@ namespace seregazhuk\PinterestBot\Api\Contracts;
 
 interface HttpClient
 {
-    const COOKIE_PREFIX = 'pinterest_cookie_';
+    const COOKIE_PREFIX = 'pinterest_bot_cookie';
 
     /**
      * Executes curl request.
@@ -20,7 +20,7 @@ interface HttpClient
      * Set custom Curl options to override default
      *
      * @param array $options
-     * @return $this
+     * @return HttpClient
      */
     public function setOptions(array $options);
 
@@ -52,7 +52,7 @@ interface HttpClient
     /**
      * Set directory to store all cookie files.
      * @param string $path
-     * @return $this
+     * @return HttpClient
      */
     public function setCookiesPath($path);
 
@@ -62,7 +62,34 @@ interface HttpClient
     public function getCookiesPath();
 
     /**
-     * @return $this
+     * @return HttpClient
      */
     public function removeCookies();
+
+    /**
+     * @param string $host '192.168.1.1'
+     * @param string $port '12345'
+     * @param string $auth Authentication string: 'username:password'
+     * @param string $type HTTP|SOCKS
+     * @return HttpClient
+     */
+    public function useProxy($host, $port, $auth = null, $type = null);
+
+    /**
+     * @param string $host
+     * @param string $port
+     * @param null $auth
+     * @return HttpClient
+     */
+    public function useSocksProxy($host, $port, $auth = null);
+
+    /**
+     * @return HttpClient
+     */
+    public function dontUseProxy();
+
+    /**
+     * @return bool
+     */
+    public function usesProxy();
 }
